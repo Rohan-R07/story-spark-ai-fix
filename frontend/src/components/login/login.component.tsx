@@ -40,16 +40,16 @@ const LoginComponent = () => {
 
   return (
     <>
-      <div className="flex h-screen">
-        <div className="w-[35%] bg-zinc-800 flex flex-col justify-between p-4">
+      <div className="flex min-h-screen flex-col md:flex-row">
+        <div className="bg-zinc-800 flex min-h-56 flex-col justify-between p-6 md:w-[35%] md:min-h-screen md:p-8">
           <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-300 to-blue-400">
             StorySparkAI
           </h1>
           <h1 className="text-3xl text-gray-100">Welcome Back</h1>
         </div>
-        <div className="w-[65%] bg-black flex items-center justify-start p-4">
-          <div className="w-1/2 p-12 flex items-center">
-            <div className="w-full max-w-md mx-auto space-y-6">
+        <div className="bg-black flex flex-1 items-center justify-center p-6 md:w-[65%] md:p-8">
+          <div className="w-full max-w-md py-8 md:py-0">
+            <div className="w-full space-y-6">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-gray-700"></div>
