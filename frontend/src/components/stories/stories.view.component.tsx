@@ -194,7 +194,6 @@ useEffect(() => {
       const title = selectedStory.title || "Untitled Story";
       const content = selectedStory.content || "";
       const tag = (selectedStory.tag || "STORY").toUpperCase();
-      const authorName = isLogin && profile?.name ? profile.name : "Anonymous";
 
       const leftMargin = 20;
       const rightMargin = 20;
@@ -250,7 +249,7 @@ useEffect(() => {
 
       yCursor += 1;
 
-      // 4. Meta Row (Generated Date, Author & Genre Pill Badge)
+      // 4. Meta Row (Generated Date & Genre Pill Badge)
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
       doc.setTextColor(100, 116, 139); // Slate 500
@@ -259,7 +258,7 @@ useEffect(() => {
         month: "long",
         day: "numeric",
       });
-      doc.text(`By ${authorName} • Generated on ${formattedDate}`, leftMargin, yCursor);
+      doc.text(`Generated on ${formattedDate}`, leftMargin, yCursor);
 
       // Genre pill badge on the right
       doc.setFont("helvetica", "bold");
