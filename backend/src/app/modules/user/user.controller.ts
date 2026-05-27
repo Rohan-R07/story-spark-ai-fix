@@ -150,7 +150,6 @@ const toggleFollow = catchAsync(async (req: Request, res: Response) => {
 
 const getFollowStatus = catchAsync(async (req: Request, res: Response) => {
   const token = await getToken(req);
-
   const authorId = routeParam(req.params.authorId);
   const result = await UserService.getFollowStatus(token, authorId);
 
