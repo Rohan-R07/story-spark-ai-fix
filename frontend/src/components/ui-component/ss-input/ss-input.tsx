@@ -67,7 +67,7 @@ const inputType =
     onClick={() => setShowPassword(!showPassword)}
     className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500"
   >
-    <i className={showPassword ? "fas fa-eye-slash" : "fas fa-eye"}></i>
+    <i className={showPassword ? "fi fi-rr-eye" : "fi fi-rr-eye-crossed"}></i>
   </button>
 )}
       </div>

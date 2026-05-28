@@ -288,7 +288,7 @@ const SignUpComponent = () => {
                 name="name"
                 placeholder="Enter your name"
                 required={true}
-                icon="fas fa-user"
+                icon="fi fi-rr-user"
                 register={register}
                 autoComplete="name"
                 validation={{
@@ -312,7 +312,7 @@ const SignUpComponent = () => {
                 type="email"
                 placeholder="Enter your email"
                 required={true}
-                icon="fas fa-envelope"
+                icon="fi fi-rr-envelope"
                 register={register}
                 autoComplete="email"
                 error={errors.email}
@@ -324,7 +324,7 @@ const SignUpComponent = () => {
                 type="password"
                 placeholder="Enter your password"
                 required={true}
-                icon="fas fa-lock"
+                icon="fi fi-rr-lock"
                 register={register}
                 autoComplete="new-password"
                 error={errors.password}
@@ -376,7 +376,7 @@ const SignUpComponent = () => {
                 type="password"
                 placeholder="Confirm your password"
                 required={true}
-                icon="fas fa-eye"
+                icon="fi fi-rr-eye"
                 register={register}
                 autoComplete="new-password"
                 error={errors.confirmPassword}
@@ -391,7 +391,7 @@ const SignUpComponent = () => {
                 name="otp"
                 placeholder="Enter your OTP"
                 required={true}
-                icon="fas fa-key"
+                icon="fi fi-rr-key"
                 register={register}
                 validation={{
                   required: "Please enter OTP",
