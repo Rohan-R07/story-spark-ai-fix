@@ -17,6 +17,7 @@ import {
   generateAlternateEndingsWithGemini,
   generateWithGeminiStories,
   generateRemixWithGemini,
+  generateStoryContinuationWithGemini,
   translateStoryWithGemini,
 } from "./ai_model.utils";
 import { assertSuccessfulGeneration } from "./quota.lifecycle";
@@ -233,6 +234,20 @@ const aiFreeModelTranslate = async (payload: ITranslatePayload) => {
   }
 };
 
+const aiFreeStoryContinuation = async (payload: { prompt: string; language?: string }) => {
+  const { prompt, language = "English" } = payload;
+
+  try {
+    const result = await raceGenerationWithTimeout(
+      (signal) => generateStoryContinuationWithGemini(prompt, language, signal),
+      FREE_GENERATION_TIMEOUT_MS
+    );
+    return result;
+  } catch (error) {
+    mapGenerationError(error, "Story continuation failed.");
+  }
+};
+
 export const AiModelService = {
   aiModelGenerate,
   aiFreeModelGenerate,
@@ -242,4 +257,5 @@ export const AiModelService = {
   aiFreeModelRemix,
   aiModelTranslate,
   aiFreeModelTranslate,
+  aiFreeStoryContinuation,
 };
