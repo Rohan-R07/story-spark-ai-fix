@@ -9,7 +9,7 @@ const auth =
   (...requiredRole: string[]) =>
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const token = req.headers.authorization as string;
+      const token = req.headers.authorization?.split(" ")[1] as string;
       if (!token) {
         throw new ApiError(
           httpStatus.UNAUTHORIZED,
