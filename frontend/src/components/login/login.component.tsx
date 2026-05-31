@@ -125,21 +125,26 @@ const LoginComponent = () => {
           </h2>
         </div>
 
-        <div className="bg-slate-50 dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700/50 rounded-2xl p-8 sm:p-10 shadow-2xl">
+        {/* <div className="bg-slate-50 dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700/50 rounded-2xl p-8 sm:p-10 shadow-2xl"> */}
+        <div className="w-full overflow-hidden bg-slate-50 dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700/50 rounded-2xl p-8 sm:p-10 shadow-2xl">
 
-            <button
+          <button
             onClick={() => window.location.href = "/"}
             className="mb-4 text-sm text-blue-400 hover:text-blue-300 transition-colors duration-200 flex items-center gap-2"
-                      >
+          >
             ← Back to Home
-            </button>
+          </button>
 
           <h3 className="mb-6 text-center text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-200">
             Welcome Back
           </h3>
 
-          <form
+          {/* <form
             className="space-y-5"
+            onSubmit={handleSubmit(onSubmit)}
+          > */}
+          <form
+            className="space-y-5 max-w-full"
             onSubmit={handleSubmit(onSubmit)}
           >
 
