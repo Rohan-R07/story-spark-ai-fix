@@ -43,7 +43,7 @@ interface IRelatedStoriesComponentProps {
 }
 
 const RelatedStoriesComponent: React.FC<IRelatedStoriesComponentProps> = ({
-  posts,currentPostId,
+  posts, currentPostId,
 }) => {
   const location = useLocation();
   const audioPlayerRef = useRef<AudioPlayerHandle>(null);
@@ -443,6 +443,7 @@ const RelatedStoriesComponent: React.FC<IRelatedStoriesComponentProps> = ({
   return (
     <div className="mt-16 px-4 sm:px-6 lg:px-8 max-w-8xl mx-auto pb-10">
       <style>
+        
         {`
           @keyframes fadeInUp {
             from { opacity: 0; transform: translateY(20px); }
