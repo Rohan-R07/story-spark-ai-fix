@@ -9,10 +9,12 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import cors from "cors";
 import httpStatus from "http-status";
+
 import cookieParser from "cookie-parser";
 import config from "./config";
 import { Routers } from "./router";
 import globalErrorHandler from "./app/middleware/global.error.handler";
+import { User } from "./app/modules/user/user.model";
 
 const app: Application = express();
 app.set("trust proxy", 1);
@@ -23,7 +25,7 @@ const limiter = rateLimit({
   max: 100,
   message: "Too many requests, please try again later.",
 });
-app.use(limiter as RequestHandler);
+app.use(limiter as unknown as RequestHandler);
 
 const defaultCorsOrigins = [
   "http://localhost:4001",
@@ -72,5 +74,6 @@ app.use((req: Request, res: Response, _next: NextFunction) => {
 });
 
 app.use(globalErrorHandler);
+
 
 export default app;
