@@ -285,7 +285,6 @@ const SignUpComponent = () => {
           <h3 className="text-center text-xl sm:text-2xl font-bold tracking-tight text-slate-200">
             {showOtpField ? "Verify Your Email" : "Create Account"}
           </h3>
-
           {!showOtpField && (
             <p className="mt-2 mb-6 text-center text-xs sm:text-sm text-slate-400 px-1">
               Join StorySparkAI and begin your creative journey.
@@ -305,7 +304,6 @@ const SignUpComponent = () => {
               </div>
             </div>
           )}
-
           {!showOtpField ? (
             <form className="space-y-5 w-full min-w-0 block box-border overflow-hidden" onSubmit={handleSubmit(onSubmit)}>
               <div className="w-full min-w-0 box-border">
@@ -462,7 +460,6 @@ const SignUpComponent = () => {
               </div>
             </div>
           )}
-
           {!showOtpField && (
             <div className="w-full min-w-0 box-border">
               {/* FIXED: Switched background from white to dark theme-aware color matching the card backdrop */}
