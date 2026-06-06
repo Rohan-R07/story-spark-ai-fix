@@ -33,10 +33,26 @@ export default {
     return Number.isInteger(parsed) && parsed > 0 ? parsed : 10;
   })(),
   jwt: {
-    secret: process.env.JWT_SECRET,
-    refresh_secret: process.env.JWT_REFRESH_SECRET,
-    expires_in: process.env.JWT_EXPIRES_IN,
-    refresh_expires_in: process.env.JWT_REFRESH_EXPIRES_IN,
+    secret: (() => {
+      const secret = process.env.JWT_SECRET?.trim();
+      if (!secret) {
+        throw new Error(
+          "JWT_SECRET environment variable is required. Please define it in your .env file."
+        );
+      }
+      return secret;
+    })(),
+    refresh_secret: (() => {
+      const secret = process.env.JWT_REFRESH_SECRET?.trim();
+      if (!secret) {
+        throw new Error(
+          "JWT_REFRESH_SECRET environment variable is required. Please define it in your .env file."
+        );
+      }
+      return secret;
+    })(),
+    expires_in: process.env.JWT_EXPIRES_IN || "1d",
+    refresh_expires_in: process.env.JWT_REFRESH_EXPIRES_IN || "30d",
   },
   default_admin_password: process.env.DEFAULT_ADMIN_PASSWORD,
   openai_key: process.env.OPEN_AI_KEY,
