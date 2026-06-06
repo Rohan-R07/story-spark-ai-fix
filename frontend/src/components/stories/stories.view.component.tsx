@@ -3,9 +3,16 @@ import DOMPurify from "dompurify";
 import { getShortenedText, ITopicData, topicsData, getWordCount, SELECTED_TOPIC_CLASSES } from "./stories.utils";
 import { formatReadingStats } from "../../utils/story-utils";
 import toast, { Toaster } from "react-hot-toast";
+import { useAntiGravityScroll } from "../../hooks/useAntiGravityScroll";
 import { useCreatePostMutation, useDeletePostMutation } from "../../redux/apis/post.api";
 import { useGetProfileInfoQuery } from "../../redux/apis/user.api";
 import jsPDF from "jspdf";
+import {
+  fetchImageAsBlob,
+  blobToBase64,
+  exportStoryToPDF,
+  exportStoryToEPUB
+} from "../../services/export.service";
 import StoryWorldMap from "../story-map/StoryWorldMap";
 import StoryRemix from "../remix/StoryRemix";
 import BookmarkButton from "../BookmarkButton";
@@ -186,6 +193,90 @@ const buildSentenceSegments = (content: string): StorySentenceSegment[] => {
   return segments;
 };
 
+const getSafeFileName = (title: string, extension: "md" | "docx"): string => {
+  const safeTitle = (title || "story")
+    .trim()
+    .replace(/[^a-z0-9]+/gi, "_")
+    .replace(/^_+|_+$/g, "")
+    .toLowerCase();
+
+  return `${safeTitle || "story"}.${extension}`;
+};
+
+const downloadBlob = (blob: Blob, fileName: string) => {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  URL.revokeObjectURL(url);
+};
+
+const escapeHtml = (value: string): string =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+
+const createDocxBlob = ({
+  title,
+  content,
+  tag,
+  author,
+}: {
+  title: string;
+  content: string;
+  tag: string;
+  author: string;
+}): Blob => {
+  const paragraphs = content
+    .split(/\n+/)
+    .map((paragraph) => `<p>${escapeHtml(paragraph.trim())}</p>`)
+    .join("");
+
+  const html = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeHtml(title)}</title>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #111827; }
+    h1 { color: #312e81; }
+    .meta { color: #64748b; font-size: 12px; margin-bottom: 24px; }
+  </style>
+</head>
+<body>
+  <h1>${escapeHtml(title)}</h1>
+  <div class="meta">Tag: ${escapeHtml(tag)} | Author: ${escapeHtml(author)}</div>
+  ${paragraphs}
+</body>
+</html>`;
+
+  return new Blob([html], {
+    type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document;charset=utf-8",
+  });
+};
+
+const StoryRemixModal = StoryRemix as unknown as React.ComponentType<{
+  story?: string;
+  title?: string;
+  selectedStory?: IStories;
+  onClose?: () => void;
+  onApplyRemix?: (content: string) => void;
+}>;
+
+const StoryWorldMapModal = StoryWorldMap as React.ComponentType<{
+  story?: string;
+  storyContent?: string;
+  title?: string;
+  onClose: () => void;
+}>;
+
 export const RelatedStoriesComponent: React.FC<IRelatedStoriesComponentProps> = ({ posts, currentPostId }) => {
   const navigate = useNavigate();
   const filteredPosts = posts.filter((post) => post._id !== currentPostId);
@@ -212,11 +303,6 @@ export const RelatedStoriesComponent: React.FC<IRelatedStoriesComponentProps> = 
   );
 };
 
-// --- Mock implementation of createDocxBlob (assuming it's a utility) ---
-const createDocxBlob = (data: any): Blob => {
-  return new Blob([data.content], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
-};
-
 // ─── Main Component ─────────────────────────────────────────────────────────
 const StoriesViewComponent: React.FC<StoriesComponentProps> = ({
   stories,
@@ -226,10 +312,26 @@ const StoriesViewComponent: React.FC<StoriesComponentProps> = ({
 }) => {
   const location = useLocation();
   const dispatch = useDispatch();
+
+  const storyScrollContainerRef = useRef<HTMLDivElement>(null);
+  const {
+    isPlaying: isAntiGravityPlaying,
+    setIsPlaying: setIsAntiGravityPlaying,
+    targetSpeed: antiGravitySpeed,
+    setTargetSpeed: setAntiGravitySpeed,
+  } = useAntiGravityScroll(storyScrollContainerRef);
+
   const audioPlayerRef = useRef<AudioPlayerHandle>(null);
 
   // States
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Export states
+  const [exportState, setExportState] = useState<"idle" | "processing" | "compiling" | "success" | "error">("idle");
+  const [isExportDropdownOpen, setIsExportDropdownOpen] = useState<boolean>(false);
+  const dropdownMenuRef = useRef<HTMLDivElement>(null);
+
+  // Standard functional states
   const [selectedStory, setSelectedStory] = useState<IStories | null>(null);
   const [topics, setTopics] = useState<ITopicData[]>(topicsData);
   const [selectTopics, setSelectTopics] = useState<ITopicData[]>([]);
@@ -271,6 +373,75 @@ const StoriesViewComponent: React.FC<StoriesComponentProps> = ({
 
   const [generateAlternateEndings] = useGenerateAlternateEndingsMutation();
   const [generateFreeAlternateEndings] = useGenerateFreeAlternateEndingsMutation();
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownMenuRef.current && !dropdownMenuRef.current.contains(event.target as Node)) {
+        setIsExportDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  const handleExport = async (format: "pdf" | "epub") => {
+    if (!selectedStory) return;
+    
+    setIsExportDropdownOpen(false);
+    setExportState("processing");
+    const toastId = toast.loading(`Preparing story for ${format.toUpperCase()} export...`);
+
+    try {
+      let imageBlob: Blob | null = null;
+      let base64Image: string | null = null;
+
+      if (selectedStory.imageURL) {
+        try {
+          imageBlob = await fetchImageAsBlob(selectedStory.imageURL);
+          base64Image = await blobToBase64(imageBlob);
+        } catch (err) {
+          console.error("Could not fetch story illustration for export:", err);
+          toast.error("Story illustration could not be loaded. Exporting text only.");
+        }
+      }
+
+      setExportState("compiling");
+      toast.loading(`Compiling ${format.toUpperCase()} file...`, { id: toastId });
+
+      if (format === "pdf") {
+        await exportStoryToPDF(selectedStory, base64Image);
+      } else {
+        await exportStoryToEPUB(selectedStory, imageBlob);
+      }
+
+      setExportState("success");
+      toast.success(`${format.toUpperCase()} downloaded successfully!`, { id: toastId });
+      setTimeout(() => setExportState("idle"), 2000);
+    } catch (err) {
+      console.error(`Failed to export to ${format}:`, err);
+      setExportState("error");
+      toast.error(`Failed to generate ${format.toUpperCase()}.`, { id: toastId });
+      setTimeout(() => setExportState("idle"), 2000);
+    }
+  };
+
+  const getExportButtonText = () => {
+    switch (exportState) {
+      case "processing":
+        return "Processing Images...";
+      case "compiling":
+        return "Compiling Book...";
+      case "success":
+        return "Success!";
+      case "error":
+        return "Failed";
+      default:
+        return "📥 Export";
+    }
+  };
 
   useEffect(() => {
     if (selectedStory && !originalStoryContent[selectedStory.uuid]) {
@@ -445,24 +616,11 @@ const StoriesViewComponent: React.FC<StoriesComponentProps> = ({
     toast.success("Reverted to original story ending!");
   };
 
-  const downloadBlob = (blob: Blob, filename: string) => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const getSafeFileName = (title: string, ext: string) => {
-    const cleanTitle = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-    return `${cleanTitle || "story"}.${ext}`;
-  };
-
   const handleExportPDF = async () => {
     if (!selectedStory) { toast.error("No story available to export."); return; }
     if (!selectedStory.content?.trim()) { toast.error("Story content is empty. Cannot export."); return; }
     
+    setIsExportDropdownOpen(false);
     const toastId = toast.loading("Preparing your premium PDF...");
     
     try {
@@ -580,6 +738,7 @@ const StoriesViewComponent: React.FC<StoriesComponentProps> = ({
   const handleExportMarkdown = () => {
     if (!selectedStory) { toast.error("No story available to export."); return; }
     if (!selectedStory.content?.trim()) { toast.error("Story content is empty. Cannot export."); return; }
+    setIsExportDropdownOpen(false);
 
     try {
       const title = selectedStory.title || "Story";
@@ -601,6 +760,8 @@ const StoriesViewComponent: React.FC<StoriesComponentProps> = ({
   const handleExportDOCX = () => {
     if (!selectedStory) { toast.error("No story available to export."); return; }
     if (!selectedStory.content?.trim()) { toast.error("Story content is empty. Cannot export."); return; }
+    setIsExportDropdownOpen(false);
+    
     try {
       const title = selectedStory.title || "Untitled Story";
       const docxBlob = createDocxBlob({
@@ -749,15 +910,35 @@ const StoriesViewComponent: React.FC<StoriesComponentProps> = ({
                 <button type="button" className="rounded-xl px-3 py-2 bg-slate-50 text-slate-600 hover:bg-slate-100 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10 border border-slate-200/60 dark:border-transparent text-xs font-bold uppercase tracking-wider transition-all duration-150 active:scale-[0.98] cursor-pointer" onClick={handleCopyStory}>
                   {isCopied ? "✓ Copied" : "📋 Copy"}
                 </button>
-                <button type="button" className="rounded-xl px-3 py-2 bg-slate-50 text-slate-600 hover:bg-slate-100 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10 border border-slate-200/60 dark:border-transparent text-xs font-bold uppercase tracking-wider transition-all duration-150 active:scale-[0.98] cursor-pointer" onClick={handleExportPDF}>
-                  📄 PDF
-                </button>
-                <button type="button" className="rounded-xl px-3 py-2 bg-slate-50 text-slate-600 hover:bg-slate-100 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10 border border-slate-200/60 dark:border-transparent text-xs font-bold uppercase tracking-wider transition-all duration-150 active:scale-[0.98] cursor-pointer" onClick={handleExportMarkdown}>
-                  ⬇️ MD
-                </button>
-                <button type="button" className="rounded-xl px-3 py-2 bg-slate-50 text-slate-600 hover:bg-slate-100 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10 border border-slate-200/60 dark:border-transparent text-xs font-bold uppercase tracking-wider transition-all duration-150 active:scale-[0.98] cursor-pointer" onClick={handleExportDOCX}>
-                  📝 DOCX
-                </button>
+                
+                {/* Export Story Dropdown Menu */}
+                <div className="relative inline-block text-left" ref={dropdownMenuRef}>
+                  <button
+                    type="button"
+                    disabled={exportState !== "idle"}
+                    onClick={() => setIsExportDropdownOpen(!isExportDropdownOpen)}
+                    className="rounded-xl px-3 py-2 bg-slate-50 text-slate-600 hover:bg-slate-100 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10 border border-slate-200/60 dark:border-transparent text-xs font-bold uppercase tracking-wider transition-all duration-150 active:scale-[0.98] cursor-pointer flex items-center gap-2"
+                  >
+                    {getExportButtonText()} <i className="fa-solid fa-chevron-down text-[10px]" />
+                  </button>
+                  {isExportDropdownOpen && (
+                    <div className="absolute left-0 sm:right-0 mt-2 z-50 w-52 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xl p-1 animate-fadeIn">
+                      <button onClick={handleExportPDF} className="w-full text-left px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg flex items-center gap-2 cursor-pointer">
+                        <span>📄</span> Premium PDF
+                      </button>
+                      <button onClick={() => handleExport("epub")} className="w-full text-left px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg flex items-center gap-2 cursor-pointer">
+                        <span>📘</span> Kindle EPUB
+                      </button>
+                      <button onClick={handleExportMarkdown} className="w-full text-left px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg flex items-center gap-2 cursor-pointer">
+                        <span>⬇️</span> Markdown
+                      </button>
+                      <button onClick={handleExportDOCX} className="w-full text-left px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg flex items-center gap-2 cursor-pointer">
+                        <span>📝</span> DOCX
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 <button type="button" className="rounded-xl px-3 py-2 bg-slate-50 text-slate-600 hover:bg-slate-100 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10 border border-slate-200/60 dark:border-transparent text-xs font-bold uppercase tracking-wider transition-all duration-150 active:scale-[0.98] cursor-pointer" onClick={() => setShowWorldMap(true)}>
                   🗺️ Map
                 </button>
@@ -914,7 +1095,57 @@ const StoriesViewComponent: React.FC<StoriesComponentProps> = ({
                       </div>
                       
                       <div className="space-y-4">
-                        <div className="bg-white dark:bg-slate-950/60 p-5 rounded-xl border border-slate-200 dark:border-slate-800 leading-relaxed text-slate-700 dark:text-slate-300 text-sm md:text-base italic shadow-inner whitespace-pre-wrap">
+                        {/* Glassmorphic Anti-Gravity Scroll Control Panel Dock */}
+                        <div className="bg-slate-100 dark:bg-slate-900/60 backdrop-blur-md border border-slate-200 dark:border-slate-800/80 p-3.5 rounded-xl flex flex-wrap items-center justify-between gap-4 shadow-xl select-none">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-extrabold uppercase tracking-widest bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-cyan-500 dark:from-indigo-400 dark:to-cyan-400">
+                              Anti-Gravity Engine
+                            </span>
+                            <span className="text-[9px] bg-indigo-100 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/20 px-1.5 py-0.5 rounded-full font-bold uppercase">
+                              {isAntiGravityPlaying ? "Active" : "Idle"}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-4 flex-wrap">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                Speed: {antiGravitySpeed.toFixed(1)}x
+                              </span>
+                              <input
+                                type="range"
+                                min="0.5"
+                                max="5.0"
+                                step="0.1"
+                                value={antiGravitySpeed}
+                                onChange={(e) => setAntiGravitySpeed(parseFloat(e.target.value))}
+                                disabled={!isAntiGravityPlaying}
+                                className="w-24 h-1.5 bg-slate-300 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed"
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setIsAntiGravityPlaying(!isAntiGravityPlaying)}
+                              className={`px-3.5 py-2 rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
+                                isAntiGravityPlaying
+                                  ? "bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20 hover:bg-red-200 dark:hover:bg-red-500/20 active:scale-95"
+                                  : "bg-gradient-to-r from-indigo-500 to-indigo-600 dark:from-indigo-600 dark:to-indigo-700 hover:from-indigo-600 hover:to-indigo-700 text-white shadow-md shadow-indigo-500/20 border border-indigo-500/30 active:scale-95"
+                              }`}
+                            >
+                              {isAntiGravityPlaying ? (
+                                <>
+                                  <i className="fa-solid fa-pause text-[9px] animate-pulse" />
+                                  <span>Pause Engine</span>
+                                </>
+                              ) : (
+                                <>
+                                  <i className="fa-solid fa-play text-[9px]" />
+                                  <span>Engage Scroll</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div ref={storyScrollContainerRef} className="bg-white dark:bg-slate-950/60 p-5 rounded-xl border border-slate-200 dark:border-slate-800 leading-relaxed text-slate-700 dark:text-slate-300 text-sm md:text-base italic shadow-inner whitespace-pre-wrap max-h-[520px] overflow-y-auto">
                           <p>{currentEndingData.ending}</p>
                         </div>
                         
@@ -997,41 +1228,40 @@ const StoriesViewComponent: React.FC<StoriesComponentProps> = ({
           <div className="bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700/50 rounded-2xl shadow-xl overflow-hidden group">
             <div className="relative flex flex-col rounded-lg">
               <div className="relative m-3 overflow-hidden text-white rounded-xl bg-slate-900">
-                {selectedStory.imageURL ? (
+                {selectedStory?.imageURL ? (
                   <ImageFallback
                     src={selectedStory.imageURL}
                     alt="card-image"
                     className="w-full h-48 object-cover transition-transform duration-500 group-hover:scale-105"
                   />
                 ) : (
-                  <StoryCoverImage title={selectedStory.title} tag={selectedStory.tag} size="full" style={{ height: "192px" }} />
+                  <StoryCoverImage title={selectedStory?.title} tag={selectedStory?.tag} size="full" style={{ height: "192px" }} />
                 )}
               </div>
               <div className="px-4 py-2 mb-4">
                 <div className="flex justify-between items-center mb-3 w-full">
                   <div className="flex flex-wrap items-center gap-2">
                     <div className="inline-flex items-center rounded-full bg-purple-100 dark:bg-purple-600/30 text-purple-700 dark:text-purple-300 py-1 px-3 text-xs font-semibold shadow-sm border border-purple-200 dark:border-transparent">
-                      {selectedStory.tag.toUpperCase()}
+                      {selectedStory?.tag?.toUpperCase() ?? "GENERAL"}
                     </div>
                     <div className="inline-flex items-center rounded-full bg-indigo-100 dark:bg-indigo-600/30 text-indigo-700 dark:text-indigo-300 py-1 px-3 text-xs font-semibold shadow-sm border border-indigo-200 dark:border-transparent">
-                      🌐 {(selectedStory.language || "English").toUpperCase()}
+                      🌐 {(selectedStory?.language || "English").toUpperCase()}
                     </div>
                   </div>
                   <div>
-                    <BookmarkButton storyId={selectedStory.uuid} />
+                    {selectedStory && <BookmarkButton storyId={selectedStory.uuid} />}
                   </div>
                 </div>
                 <h6 className="mb-2 text-slate-800 dark:text-gray-200 text-lg font-bold leading-tight">
-                  {selectedStory.title}
+                  {selectedStory?.title ?? ""}
                 </h6>
                 <p className="text-slate-500 dark:text-gray-400 font-medium break-words text-sm line-clamp-3">
-                  {getShortenedText(selectedStory.content, 120)}
+                  {selectedStory ? getShortenedText(selectedStory.content, 120) : ""}
                 </p>
               </div>
             </div>
           </div>
           
-          {/* Include Related Stories block if it existed locally */}
           <div className="mt-8">
              {/* If posts were supplied by context, they would render here */}
           </div>
@@ -1040,7 +1270,7 @@ const StoriesViewComponent: React.FC<StoriesComponentProps> = ({
 
       {/* ── Modals / Overlays ── */}
       {showWorldMap && selectedStory && (
-        <StoryWorldMap
+        <StoryWorldMapModal
           story={selectedStory.content}
           title={selectedStory.title}
           onClose={() => setShowWorldMap(false)}
@@ -1048,21 +1278,23 @@ const StoriesViewComponent: React.FC<StoriesComponentProps> = ({
       )}
 
       {showRemix && selectedStory && (
-        <StoryRemix
-          story={selectedStory}
-          isLogin={isLogin}
-          onRemixComplete={(remixedStory) => { 
-            setStories([remixedStory, ...stories]); 
-            setSelectedStory(remixedStory); 
-            setShowRemix(false); 
-          }}
+        <StoryRemixModal
+          story={selectedStory.content}
+          title={selectedStory.title}
+          selectedStory={selectedStory}
           onClose={() => setShowRemix(false)}
+          onApplyRemix={(content: string) => {
+            const updatedStory = { ...selectedStory, content };
+            setSelectedStory(updatedStory);
+            setStories(stories.map((story) => (story.uuid === selectedStory.uuid ? updatedStory : story)));
+            setShowRemix(false);
+          }}
         />
       )}
 
       {showStoryVisualizer && storyboardScenes.length > 0 && (
         <StoryVisualizer
-          title={selectedStory.title}
+          title={selectedStory?.title ?? ""}
           scenes={storyboardScenes}
           styleGuide={storyboardStyleGuide}
           onClose={() => setShowStoryVisualizer(false)}
