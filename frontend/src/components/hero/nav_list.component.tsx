@@ -1,13 +1,15 @@
 import { useState } from "react";
-import { Link, NavLink, useLocation } from "react-router-dom";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { isLoggedIn, removeUserInfo } from "../../services/auth.service";
 import ThemeToggle from "../theme/theme_toggle.component";
 import { ArrowRight, Menu, Sparkles, X } from "lucide-react";
 import { useTheme } from "../theme/theme.context";
+import { useScrollDirection } from "../../hooks/useScrollDirection";
 
 const NavListComponent = () => {
   const navigate = useNavigate();
+  const { scrollDirection, isAtTop } = useScrollDirection();
   const [menuOpen, setMenuOpen] = useState(false);
   const [loggedIn, setLoggedIn] = useState(isLoggedIn());
   const { pathname } = useLocation();
@@ -24,10 +26,6 @@ const NavListComponent = () => {
     setMenuOpen(false);
   };
 
-  const isActive = (path: string) => {
-    return pathname === path || (path === "/" && pathname === "/");
-  };
-
   const mobileLinkClass = ({ isActive }: { isActive: boolean }) =>
     `block rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200 ${
       isActive
@@ -35,8 +33,126 @@ const NavListComponent = () => {
         : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10"
     }`;
 
+  const navItems = [
+    { to: "/", label: "Home" },
+    { to: "/explore", label: "Explore" },
+    { to: "/story-inspiration", label: "Stories" },
+    { to: "/community", label: "Community" },
+  ];
+
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-slate-200/70 bg-white/90 backdrop-blur-md dark:border-white/10 dark:bg-[#0B1120]/80">
+    <header
+      className="fixed left-0 right-0 top-0 z-50 w-full border-b border-slate-200/70 bg-white/90 backdrop-blur-md transition-transform duration-300 dark:border-white/10 dark:bg-[#0B1120]/80"
+      style={{
+        transform: scrollDirection === 'down' && !isAtTop ? 'translateY(-100%)' : 'translateY(0)',
+      }}
+    >
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+        <Link
+          to="/"
+          className="text-lg font-bold text-slate-800 dark:text-white"
+          onClick={(e) => {
+            if (window.location.pathname === "/") {
+              e.preventDefault();
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }
+          }}
+        >
+          Spark-Story-AI
+        </Link>
+
+        <nav className="hidden items-center gap-4 lg:flex">
+          {navItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.to === "/"}
+              className={({ isActive }) =>
+                `text-sm font-medium transition-colors duration-200 ${
+                  isActive
+                    ? "text-slate-900 dark:text-white"
+                    : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
+                }`
+              }
+            >
+              {item.label}
+            </NavLink>
+          ))}
+        </nav>
+
+        <div className="flex items-center gap-4">
+          <ThemeToggle />
+          {loggedIn ? (
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="text-sm font-medium text-slate-700 dark:text-slate-200"
+            >
+              Logout
+            </button>
+          ) : (
+            <>
+              <Link
+                to="/login"
+                className="text-sm font-medium text-slate-700 dark:text-slate-200"
+              >
+                Login
+              </Link>
+              <Link
+                to="/signup"
+                className="text-sm font-medium text-white"
+              >
+                Sign Up
+              </Link>
+            </>
+          )}
+          <button
+            type="button"
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            onClick={() => setMenuOpen((prev) => !prev)}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-600 transition-all duration-300 hover:bg-slate-200/60 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white lg:hidden"
+          >
+            {menuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+        </div>
+      </div>
+
+      {menuOpen && (
+        <div className="border-t border-slate-200/70 bg-white/95 px-4 py-4 dark:border-white/10 dark:bg-[#0B1120]/95 lg:hidden">
+          <nav className="space-y-2">
+            {navItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === "/"}
+                onClick={() => setMenuOpen(false)}
+                className={({ isActive }) =>
+                  `block rounded-md px-4 py-2 text-sm font-medium transition-all duration-200 ${
+                    isActive
+                      ? "bg-slate-100 text-slate-900 dark:bg-white/10 dark:text-white"
+                      : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/10"
+                  }`
+                }
+              >
+                {item.label}
+              </NavLink>
+            ))}
+            {loggedIn && (
+              <button
+                onClick={handleLogout}
+                className="block w-full rounded-md px-4 py-2 text-left text-sm font-medium text-slate-600 transition-all duration-200 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/10"
+              >
+                Logout
+              </button>
+            )}
+          </nav>
+        </div>
+      )}
+    </header>
+  );
+};
+
+export default NavListComponent;
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
         <Link
           to="/"
