@@ -34,11 +34,11 @@ const ExploreViewListComponent: React.FC<IExploreViewListComponentProps> = ({
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 auto-rows-fr">
         {[...Array(8)].map((_, i) => (
           <div
             key={i}
-            className="animate-pulse bg-[#f8fafc]/90 border border-slate-200/60 shadow-lg rounded-[2.5rem] overflow-hidden flex flex-col h-[520px] dark:bg-slate-900/40 dark:border-white/5 dark:shadow-2xl"
+            className="animate-pulse bg-[#f8fafc]/90 border border-slate-200/60 shadow-lg rounded-[2.5rem] overflow-hidden flex flex-col h-[520px] min-h-0 dark:bg-slate-900/40 dark:border-white/5 dark:shadow-2xl"
           >
             <div className="relative aspect-video bg-slate-200/80 dark:bg-slate-800/50">
               <div className="absolute inset-0 bg-gradient-to-t from-slate-100 to-transparent dark:from-[#03050C] opacity-60"></div>
@@ -67,13 +67,13 @@ const ExploreViewListComponent: React.FC<IExploreViewListComponentProps> = ({
 
   return (
     <div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 auto-rows-fr">
         {posts.length > 0 ? (
           posts.map((story) => (
             <div
               key={story._id}
               onClick={() => navigate(`/post/${story._id}`)}
-              className="cursor-pointer bg-gray-50 text-slate-900 backdrop-blur-xl border border-gray-200 rounded-3xl shadow-lg hover:shadow-2xl hover:shadow-blue-500/10 hover:-translate-y-2 transition-all duration-300 overflow-hidden group flex flex-col h-full dark:bg-slate-900/60 dark:text-white dark:border-slate-800"
+              className="cursor-pointer bg-gray-50 text-slate-900 backdrop-blur-xl border border-gray-200 rounded-3xl shadow-lg hover:shadow-2xl hover:shadow-blue-500/10 hover:-translate-y-2 transition-all duration-300 overflow-hidden group flex flex-col h-full min-h-0 dark:bg-slate-900/60 dark:text-white dark:border-slate-800"
             >
               <div className="relative overflow-hidden bg-slate-200 dark:bg-slate-800">
                 {!imageErrors[story._id] && story.imageURL ? (
@@ -111,7 +111,7 @@ const ExploreViewListComponent: React.FC<IExploreViewListComponentProps> = ({
                 </div>
               </div>
 
-              <div className="px-6 py-5 flex-1 flex flex-col relative z-10">
+              <div className="px-6 py-5 flex-1 flex flex-col relative z-10 min-h-0">
                 <h3 className="font-extrabold text-xl mb-3 text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-2 dark:text-white dark:group-hover:text-indigo-400">
                   {story.title}
                 </h3>
