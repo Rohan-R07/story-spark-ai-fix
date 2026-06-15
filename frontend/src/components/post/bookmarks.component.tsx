@@ -169,22 +169,20 @@ const BookmarksComponent = () => {
           <button
             type="button"
             onClick={() => setActiveTab("posts")}
-            className={`px-4 py-2 text-sm font-bold rounded-xl transition-all duration-200 cursor-pointer ${
-              activeTab === "posts"
+            className={`px-4 py-2 text-sm font-bold rounded-xl transition-all duration-200 cursor-pointer ${activeTab === "posts"
                 ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
                 : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
-            }`}
+              }`}
           >
             Published Stories ({allPosts.length})
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("generated")}
-            className={`px-4 py-2 text-sm font-bold rounded-xl transition-all duration-200 cursor-pointer ${
-              activeTab === "generated"
+            className={`px-4 py-2 text-sm font-bold rounded-xl transition-all duration-200 cursor-pointer ${activeTab === "generated"
                 ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
                 : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
-            }`}
+              }`}
           >
             Generated Drafts ({sessionStories.length})
           </button>
