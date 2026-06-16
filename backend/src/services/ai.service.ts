@@ -1,6 +1,7 @@
 // backend/src/services/ai.service.ts
 
 import { validateAndFormatPrompt, validateOutput } from "../utils/promptSecurity";
+import { buildStoryPrompt, PromptOptions } from "../utils/promptBuilder";
 import OpenAI from "openai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import Anthropic from "@anthropic-ai/sdk";
@@ -33,25 +34,29 @@ export function getAnthropicClient(): Anthropic {
 
 export const GEMINI_MODEL = "gemini-2.5-flash";
 export const CLAUDE_MODEL = "claude-3-5-sonnet-20241022";
-export const OPENAI_MODEL = "gpt-4";
+export const OPENAI_MODEL = "gpt-4o-mini"; // Note: gpt-4 doesn't support response_format natively as well as 4o/4o-mini
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface AIResponse {
-  story: string;
+  story: string; // This will now contain the stringified JSON payload
   provider: "openai" | "gemini" | "anthropic";
   fallbackUsed: boolean;
 }
 
 // ─── OpenAI call ─────────────────────────────────────────────────────────────
 
-async function generateWithOpenAI(prompt: string): Promise<string> {
+async function generateWithOpenAI(systemPrompt: string, userPrompt: string): Promise<string> {
   const client = getOpenAIClient();
   const response = await client.chat.completions.create(
     {
       model: OPENAI_MODEL,
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: 1000,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      response_format: { type: "json_object" }, // Enforce structured JSON output
+      max_tokens: 1500,
     },
     { timeout: 10000 }
   );
@@ -63,13 +68,14 @@ async function generateWithOpenAI(prompt: string): Promise<string> {
 
 // ─── Anthropic call ──────────────────────────────────────────────────────────
 
-async function generateWithAnthropic(prompt: string): Promise<string> {
+async function generateWithAnthropic(systemPrompt: string, userPrompt: string): Promise<string> {
   const client = getAnthropicClient();
   const response = await client.messages.create(
     {
       model: CLAUDE_MODEL,
-      max_tokens: 1000,
-      messages: [{ role: "user", content: prompt }],
+      system: systemPrompt, // Anthropic handles system instructions top-level
+      max_tokens: 1500,
+      messages: [{ role: "user", content: userPrompt }],
     },
     { timeout: 10000 }
   );
@@ -82,11 +88,21 @@ async function generateWithAnthropic(prompt: string): Promise<string> {
 
 // ─── Gemini call ─────────────────────────────────────────────────────────────
 
-async function generateWithGemini(prompt: string): Promise<string> {
-  const model  = genAI.getGenerativeModel({ model: GEMINI_MODEL });
-  const result = await model.generateContent(prompt);
+async function generateWithGemini(systemPrompt: string, userPrompt: string): Promise<string> {
+  // Use systemInstruction for gemini-2.5 models
+  const model  = genAI.getGenerativeModel({ 
+    model: GEMINI_MODEL,
+    systemInstruction: systemPrompt 
+  });
+  
+  const result = await model.generateContent({
+    contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+    generationConfig: {
+      responseMimeType: "application/json", // Enforce structured JSON output
+    }
+  });
+  
   const text   = result.response.text();
-
   if (!text) throw new Error("Gemini returned an empty response");
   return text;
 }
@@ -115,9 +131,16 @@ function isRetryableError(error: unknown): boolean {
 
 // ─── Main exported function ───────────────────────────────────────────────────
 
-export async function generateStory(prompt: string, provider?: string): Promise<AIResponse> {
+export async function generateStory(
+  prompt: string, 
+  provider?: string, 
+  options?: PromptOptions
+): Promise<AIResponse> {
   // ── SECURITY LAYER: Validate and wrap input ─────────────────────────
   const securePrompt = validateAndFormatPrompt(prompt);
+
+  // ── PROMPT BUILDER: Transform into structured AI instructions ───────
+  const { systemPrompt, userPrompt } = buildStoryPrompt(securePrompt, options);
 
   const chosenProvider = provider?.toLowerCase();
   let didFallbackToGemini = false;
@@ -125,7 +148,7 @@ export async function generateStory(prompt: string, provider?: string): Promise<
   if (chosenProvider === "anthropic" || chosenProvider === "claude") {
     // ── Try Anthropic first ──────────────────────────────────────────────────
     try {
-      let story = await generateWithAnthropic(securePrompt);
+      let story = await generateWithAnthropic(systemPrompt, userPrompt);
       story = validateOutput(story); // SECURITY LAYER: Validate output
       console.log("[AI] Story generated successfully via Anthropic");
       return { story, provider: "anthropic", fallbackUsed: false };
@@ -146,7 +169,7 @@ export async function generateStory(prompt: string, provider?: string): Promise<
   } else if (chosenProvider === "openai" || !chosenProvider) {
     // ── Try OpenAI first ──────────────────────────────────────────────────────
     try {
-      let story = await generateWithOpenAI(securePrompt);
+      let story = await generateWithOpenAI(systemPrompt, userPrompt);
       story = validateOutput(story); // SECURITY LAYER: Validate output
       console.log("[AI] Story generated successfully via OpenAI");
 
@@ -177,7 +200,7 @@ export async function generateStory(prompt: string, provider?: string): Promise<
 
   // ── Try Gemini as fallback / direct ───────────────────────────────────────
   try {
-    let story = await generateWithGemini(securePrompt);
+    let story = await generateWithGemini(systemPrompt, userPrompt);
     story = validateOutput(story); // SECURITY LAYER: Validate output
     console.log(`[AI] Story generated successfully via Gemini (${didFallbackToGemini ? "fallback" : "direct"})`);
 
