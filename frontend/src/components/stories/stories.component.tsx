@@ -26,14 +26,9 @@ type Inputs = {
   prompt: string;
 };
 
-<<<<<<< issue-3108
 const MAX_PROMPT_LENGTH = 2000;
 const WARN_THRESHOLD = 0.8;
 const DANGER_THRESHOLD = 0.95;
-=======
-const MAX_PROMPT_LENGTH = 1000;
-const WARN_THRESHOLD = 0.85;
->>>>>>> main
 
 const LANGUAGES = [
   { code: "en", name: "English" },
@@ -1180,14 +1175,10 @@ const [, setShowRemix] = useState<boolean>(false);
     reset,
   ]);
 
-<<<<<<< issue-3108
   const isOverLimit = textareaValue.length >= MAX_PROMPT_LENGTH;
   const isDangerLimit = textareaValue.length >= MAX_PROMPT_LENGTH * DANGER_THRESHOLD;
   const isNearLimit = textareaValue.length >= MAX_PROMPT_LENGTH * WARN_THRESHOLD && !isDangerLimit;
-=======
-  const isOverLimit = textareaValue.length > MAX_PROMPT_LENGTH;
-  const isNearLimit = textareaValue.length >= MAX_PROMPT_LENGTH * WARN_THRESHOLD;
->>>>>>> main
+
   const isGenerateDisabled = loading || isOverLimit || !textareaValue.trim();
 
   const handleOpenHelp = useCallback(() => setShowHelpModal(true), []);
@@ -1732,7 +1723,7 @@ onKeyDown={(e) => {
                         >
                           <i className="fa-solid fa-xmark"></i>
                         </button>
-<<<<<<< issue-3108
+
                       )}
 
                       <button
@@ -1765,8 +1756,7 @@ onKeyDown={(e) => {
                         isOverLimit || isDangerLimit ? "text-red-500 dark:text-red-400" : isNearLimit ? "text-amber-500" : "text-slate-400"
                       }`}>
                         {textareaValue.length} / {MAX_PROMPT_LENGTH}
-=======
->>>>>>> main
+
                       </span>
                     </div>
                   </div>
@@ -1819,7 +1809,7 @@ onKeyDown={(e) => {
                     </p>
                   </div>
 
-<<<<<<< issue-3108
+
                       <span
   className={`text-xs tabular-nums ml-auto flex gap-2 ${
     isOverLimit || isDangerLimit
@@ -1867,7 +1857,7 @@ onKeyDown={(e) => {
                                 className="w-full px-3 py-2 text-xs sm:text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl outline-none focus:border-blue-500/40 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 placeholder:italic"
                               />
                             </div>
-=======
+
                   <div className="space-y-4">
                     {characters.map((char, index) => (
                       <div
@@ -1886,7 +1876,7 @@ onKeyDown={(e) => {
                             Remove
                           </button>
                         </div>
->>>>>>> main
+
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-1.5">
@@ -2427,5 +2417,4 @@ onKeyDown={(e) => {
   );
 };
 
-export default StoriesComponent;
 export default StoriesViewComponent;
