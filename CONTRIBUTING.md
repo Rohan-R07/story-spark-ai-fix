@@ -181,4 +181,21 @@ Please read and follow our [Code of Conduct](./CODE_OF_CONDUCT.md).
 
 ## Need Help?
 
+
 If you get stuck, open a [Discussion](https://github.com/ronisarkarexe/story-spark-ai/discussions) or comment on the relevant issue. We're happy to help!
+=======
+## **Frequently Asked Questions**
+
+1. **Do I need to get assigned before working on an issue?**
+   - Yes. Please wait until a maintainer assigns the issue to you before starting work. Contributions made without assignment may not be accepted if another contributor is already working on the same issue.
+2. **My Pull Request has merge conflicts. What should I do?**
+   - Update your branch with the latest changes from the upstream repository, resolve the conflicts locally, and push the updated branch.
+3. **Can I directly push changes to the main branch?**
+   - No. Always create a separate branch for your work and open a Pull Request from that branch.
+4. **How long does it take for a Pull Request to be reviewed?**
+   - Review times vary depending on maintainer availability and project activity. Please be patient and avoid repeatedly asking for reviews.
+
+<br>
+
+# **Thank you for contributing💗** 
+
