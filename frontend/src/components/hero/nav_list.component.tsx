@@ -314,6 +314,7 @@ const NavListComponent = () => {
           >
             <div className="mx-auto max-w-7xl px-4 pb-5 pt-2 sm:px-6">
               <div className="space-y-2 rounded-2xl border border-slate-200/70 bg-white/55 p-2 shadow-sm shadow-slate-900/5 dark:border-white/10 dark:bg-white/[0.04]">
+                </div>
                 {navItems.map((item, index) => (
                   <motion.div
                     key={item.to}

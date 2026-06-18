@@ -14,6 +14,7 @@ import MagicCursorComponent from "./components/magic-cursor/magic_cursor.compone
 import ThemeSwitcher from "./components/theme-switcher/ThemeSwitcher";
 import HeroSectionComponent from "./components/hero/hero_section.component";
 import HomeComponent from "./components/home/home.component";
+
 import NotFoundComponent from "./components/not-found.component";
 
 // Lazy-loaded page components
