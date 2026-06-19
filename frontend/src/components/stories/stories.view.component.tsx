@@ -1,3 +1,7 @@
+import React, { useEffect, useState } from "react";
+import CharacterProfileCard from "./CharacterProfileCard";
+import { CharacterProfile } from "./stories.utils";
+import { getShortenedText, ITopicData, topicsData } from "./stories.utils";
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import { getShortenedText, ITopicData, topicsData, getWordCount, SELECTED_TOPIC_CLASSES } from "./stories.utils";
 import { formatReadingStats } from "../../utils/story-utils";
@@ -387,6 +391,8 @@ const StoriesViewComponent: React.FC<StoriesComponentProps> = ({
 
   const [loading, setLoading] = useState<boolean>(false);
   const [isCopied, setIsCopied] = useState<boolean>(false);
+  const [characterProfiles, setCharacterProfiles] = useState<CharacterProfile[]>([]);
+  const [profileLoading, setProfileLoading] = useState<boolean>(false);
   const [showWorldMap, setShowWorldMap] = useState<boolean>(false);
   const [, setShowRemix] = useState<boolean>(false);
   const [showContinueModal, setShowContinueModal] = useState<boolean>(false);
@@ -1086,6 +1092,49 @@ const StoriesViewComponent: React.FC<StoriesComponentProps> = ({
     } catch (error) { console.error(error); toast.error("Failed to export Markdown."); }
   };
 
+    toast.success("PDF downloaded!");
+  } catch (error) {
+    console.error(error);
+    toast.error("Failed to export PDF.");
+  }
+};
+
+const handleGenerateCharacterProfile = async () => {
+  if (!selectedStory) {
+    toast.error("No story selected!");
+    return;
+  }
+
+  setProfileLoading(true);
+
+  try {
+    // Replace with your backend API endpoint
+    const response = await fetch(
+      "/api/generate-character-profile",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          story: selectedStory.content,
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    setCharacterProfiles(data.data);
+
+    toast.success("Character profiles generated!");
+  } catch (error) {
+    console.error(error);
+    toast.error("Failed to generate profiles.");
+  } finally {
+    setProfileLoading(false);
+  }
+};
+
   const handelPublishStory = async () => {
     if (!isLogin) {
       toast.error("Please login to publish the story.");
@@ -1464,6 +1513,32 @@ const StoriesViewComponent: React.FC<StoriesComponentProps> = ({
               <h3 className="text-xl font-bold text-slate-200 relative z-10">
                 Generated Story
               </h3>
+              <div className="flex items-center gap-2 relative z-10">
+                {selectedStory && (
+                  <>
+                    <button
+                      type="button"
+                      className="rounded-lg px-4 py-2 bg-slate-700 text-slate-200 font-semibold cursor-pointer hover:bg-slate-600 transition-colors"
+                      onClick={handleCopyStory}
+                    >
+                      {isCopied ? "✓ Copied" : "📋 Copy"}
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-lg px-4 py-2 bg-indigo-700 text-white font-semibold hover:bg-indigo-600 transition-colors"
+                      onClick={handleGenerateCharacterProfile}
+                    >
+                      {profileLoading ? "Generating..." : "👥 Characters"}
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-lg px-4 py-2 bg-purple-700 text-slate-200 font-semibold cursor-pointer hover:bg-purple-600 transition-colors"
+                      onClick={handleExportPDF}
+                    >
+                      📄 Export PDF
+                    </button>
+                  </>
+                )}
               <div className="flex flex-wrap items-center gap-2 relative z-10">
                 <button
                   type="button"
@@ -1820,6 +1895,24 @@ const StoriesViewComponent: React.FC<StoriesComponentProps> = ({
               />
             </div>
           </div>
+          <div className="mt-6">
+  {characterProfiles.length > 0 && (
+    <>
+      <h3 className="text-xl font-bold text-white mb-4">
+        Character Profiles
+      </h3>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {characterProfiles.map((profile, index) => (
+          <CharacterProfileCard
+            key={index}
+            profile={profile}
+          />
+        ))}
+      </div>
+    </>
+  )}
+</div>
           <div className="mt-7">
             <div className="bg-slate-800/60 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-xl p-6 mb-8">
               <h3 className="text-lg font-bold text-slate-200 mb-4">
@@ -2023,6 +2116,9 @@ const StoriesViewComponent: React.FC<StoriesComponentProps> = ({
             )}
           </div>
         </div>
+
+        
+
 
         <div className="col-span-1 lg:col-span-4">
           <GeneratedStoryTimeline
